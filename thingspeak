@@ -1,0 +1,74 @@
+#include <ESP8266WiFi.h>
+#include "ThingSpeak.h"
+#include "DHT.h"
+
+#define triggerPin  D0
+#define echoPin     D1
+#define DHTPIN      D2   
+#define DHTTYPE     DHT11
+#define led         D3
+
+const char* MY_SSID = "WIFI";
+const char* MY_PWD  = "PASSWORD";
+WiFiClient client;
+
+unsigned long myChannelNumber = NUMBER;
+const char * myWriteAPIKey = APIKEY;
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+Serial.print("Connecting to "+*MY_SSID);
+  WiFi.begin(MY_SSID, MY_PWD);
+
+  Serial.begin(115200);
+
+  dht.begin();
+  pinMode(triggerPin, OUTPUT);
+  pinMode(echoPin, INPUT); 
+  pinMode(led, OUTPUT);
+
+  ThingSpeak.begin(client);
+}
+
+void loop() {
+  // Connect or reconnect to WiFi
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.print("Attempting to connect");
+    while(WiFi.status() != WL_CONNECTED){
+      WiFi.begin(MY_SSID, MY_PWD); 
+      delay(5000);
+    } 
+    Serial.println("\nConnected.");
+  }
+  delay(2000);
+
+  long duration, j;
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2); 
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(10); 
+  digitalWrite(triggerPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  j = (duration/2) / 29.1;
+
+  if (isnan(h) || isnan(t) ) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  Serial.print("Humidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.println(t);
+  Serial.print("Jarak Sensor: ");
+  Serial.println(j);
+   
+  int temp = ThingSpeak.writeField(myChannelNumber, 1, t, myWriteAPIKey);
+  int humd = ThingSpeak.writeField(myChannelNumber, 5, h, myWriteAPIKey);
+  int jarak = ThingSpeak.writeField(myChannelNumber, 3, j, myWriteAPIKey);
+}
